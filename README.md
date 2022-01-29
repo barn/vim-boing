@@ -34,6 +34,6 @@ A. That's not a question, also I know.
 
 `g:boing#opengithubkey` single key to press to open SHA in github. `<F9>` is the default.
 
-`g:boing#togglekey` key combo to enable/disable previewing default: '<leader>gb'
+`g:boing#togglekey` key combo to enable/disable previewing default: `<leader>gb`
 
 Yeah, that would be a great feature. Agreed.
