@@ -7,7 +7,7 @@ endif
 let g:loaded_boing = 1
 
 " This should come from some config thing.
-let g:boing#enabled = v:true
+let g:boing#enabled = get(g:, 'boing#enabled', v:false)
 let s:github_open_key = get(g:, 'boing#opengithubkey', "\<F9>")
 
 " Use this so we don't call the func on every CursorMoved, just up and
@@ -19,7 +19,8 @@ let w:boingbufferid = ''
 let s:title_spc = '              '
 let s:sha = ''
 
-nmap <silent><Leader>g :call boing#Toggle()<CR>
+let s:togglekey = get(g:, 'boing#togglekey', '<Leader>gb')
+execute 'nmap <silent>' . s:togglekey . ' :call boing#Toggle()<CR>'
 
 function! boing#Toggle()
     " let g:boing#enabled = ( g:boing#enabled == v:false )
@@ -105,23 +106,8 @@ function! boing#CloseThatPopup(winid, key)
   " Open commit in github if it exists, and youre on a mac, and a lot of
   " planets are very carefully aligned.
   elseif a:key ==# s:github_open_key
-      " XXX need to steal variables here? sha repo origin
-      let l:isitpushed = 'git branch -r --contains ' . s:sha
-      if !empty(system(l:isitpushed))
-          " Well this all seems terrible dot gif
-          " please move this to a function
-          let l:remote = system('git remote get-url --push origin')
-          let l:url = substitute(l:remote, '\n\+$', '', '')
-          let l:url = substitute(l:url, '\v.*\bgithub\.com[/:]', 'https;//github.com/', '')
-          let l:url = substitute(l:url, '\v\.git$', '', '')
-
-          let l:bumpercommand = 'open ' . l:url . '/commit/' . s:sha  . ' >/dev/null 2>&1'
-          echo l:bumpercommand
-          call system(l:bumpercommand)
-          call popup_close(a:winid)
-      else
-          echo s:sha . ' not pushed to remote.'
-      endif
+      " we can just call it, as it might work, it might not. Not vital.
+      call boing#OpenGithubSha(a:winid)
       return v:true
 
   " scroll around popup
@@ -139,6 +125,33 @@ function! boing#CloseThatPopup(winid, key)
   endif
   return v:false
 endfunction
+
+function! boing#OpenGithubSha(winid)
+    let l:isitpushed = 'git branch -r --contains ' . s:sha
+    if !empty(system(l:isitpushed))
+        " Well this all seems terrible dot gif
+        let l:remote = system('git remote get-url --push origin')
+        if match(l:remote, '\cgithub.com') >= 0
+            " chomp()
+            let l:url = substitute(l:remote, '\n\+$', '', '')
+            " make it a https not git/ssh link
+            let l:url = substitute(l:url, '\v.*\bgithub\.com[/:]', 'https;//github.com/', '')
+            " remove .git if its there at the end
+            let l:url = substitute(l:url, '\v\.git$', '', '')
+
+            let l:browser = get(g:, 'boing#browser', 'open')
+            let l:bumpercommand = l:browser . ' ' . l:url . '/commit/' . s:sha  . ' >/dev/null 2>&1'
+
+            call system(l:bumpercommand)
+            call popup_close(a:winid)
+        else
+            echo 'sorry we only support jithub.'
+        endif
+    else
+        echo s:sha . ' is not pushed to remote.'
+    endif
+endfunction
+
 
 "" the random string  I found that kicked this whole thing off.
 " nmap <silent><Leader>g :call setbufvar(winbufnr(popup_atcursor(split(system("git log -n 1 -L " . line(".") . ",+1:" . expand("%:p")), "\n"), { "padding": [1,1,1,1], "pos": "botleft", "wrap": 0 })), "&filetype", "git")<CR>
