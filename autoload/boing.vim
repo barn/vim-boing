@@ -1,3 +1,7 @@
+" boing.vim - Popup window for commits when interactive rebasing
+" Author:       Bea Hughes <ohgoodmorespamviagithub@mumble.org.uk>
+" Version:      0.0.1
+"
 set encoding=utf-8
 scriptencoding utf-8
 
@@ -15,8 +19,6 @@ let s:github_open_key = get(g:, 'boing#opengithubkey', "\<F9>")
 let w:gitshapopupline = -1
 let w:boingbufferid = ''
 
-" for "centring" the title
-let s:title_spc = '              '
 let s:sha = ''
 
 let s:togglekey = get(g:, 'boing#togglekey', '<Leader>gb')
