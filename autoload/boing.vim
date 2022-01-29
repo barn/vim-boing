@@ -67,8 +67,9 @@ function! boing#GitSHAPopup()
 
         let l:title = 'Doing a rebase'
         if exists('*airline#extensions#branch#head')
-            let l:title = 'Rebase on ' . airline#extensions#branch#head()
+            let l:title = "\<Esc>[33m" . 'Rebase on ' . airline#extensions#branch#head()
         endif
+        let l:title = boing#CentreText(l:title, &columns - l:width)
 
         let w:boingbufferid = popup_create(l:text,
         \           { 'padding': [1,1,1,1],
@@ -79,7 +80,7 @@ function! boing#GitSHAPopup()
         \             'fixed': v:true,
         \             'scrollbar': v:true,
         \             'moved': [line('.'),0,l:ww],
-        \             'title': s:title_spc . "\<Esc>[33m" . l:title . s:title_spc,
+        \             'title': l:title,
         \             'filter': funcref('boing#CloseThatPopup'),
         \             'wrap': v:false }
         \           )
@@ -87,6 +88,13 @@ function! boing#GitSHAPopup()
         call setbufvar(winbufnr(w:boingbufferid), '&filetype', 'git')
         " set the filetype in the popup to git, so syntax hi
     endif
+endfunction
+
+" Given a width, say of a term/pane, and a string, centre it with spaces
+" like a computer professional.
+function! boing#CentreText(text, size)
+    let l:spaces = repeat(' ', (a:size - len(strtrans(a:text)))/ 2)
+    return l:spaces . a:text . l:spaces
 endfunction
 
 " Processes keys and closes popup accordingly
