@@ -31,7 +31,9 @@ A. That's not a question, also I know.
 ## Configuration
 
 `g:boing#browser` how to open links. `open` is the default.
+
 `g:boing#opengithubkey` single key to press to open SHA in github. `<F9>` is the default.
+
 `g:boing#togglekey` key combo to enable/disable previewing default: '<leader>gb'
 
 Yeah, that would be a great feature. Agreed.
