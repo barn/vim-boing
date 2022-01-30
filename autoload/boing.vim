@@ -21,6 +21,11 @@ let w:boingbufferid = ''
 
 let s:sha = ''
 
+" By making the cache buffer scoped it should get emptied when one exists
+" the buffer to finish the commit. This utter may not work for people who
+" rebase in vim. I think an autocmd on bufsave or similar may work.
+let b:boingcache = {}
+
 let s:togglekey = get(g:, 'boing#togglekey', '<Leader>gb')
 execute 'nmap <silent>' . s:togglekey . ' :call boing#Toggle()<CR>'
 
@@ -59,9 +64,14 @@ function! boing#GitSHAPopup()
         " set this early for autocmd CursorMoved thing
         let w:gitshapopupline = line('.')
 
-        " git command we run, split in to a list
-        let l:cmd = 'git show --pretty=medium ' . s:sha
-        let l:text = split(system(l:cmd), '\n')
+        if exists(b:boingcache[s:sha]) && !empty(b:boingcache[s:sha])
+            l:text = b:boingcache[s:sha]
+        else
+            " git command we run, split in to a list
+            let l:cmd = 'git show --pretty=medium ' . s:sha
+            let l:text = split(system(l:cmd), '\n')
+            b:boingcache[s:sha] = l:text
+        endif
 
         " Fun working out how wide the popup should be
         let l:ww = &columns
@@ -73,20 +83,32 @@ function! boing#GitSHAPopup()
         endif
         let l:title = boing#CentreText(l:title, &columns - l:width)
 
-        let w:boingbufferid = popup_create(l:text,
-        \           { 'padding': [1,1,1,1],
-        \             'line': 2,
-        \             'col': l:width,
-        \             'minheight': &lines - 1,
-        \             'minwidth': &columns - l:width,
-        \             'fixed': v:true,
-        \             'scrollbar': v:true,
-        \             'moved': [line('.'),0,l:ww],
-        \             'title': l:title,
-        \             'filter': funcref('boing#CloseThatPopup'),
-        \             'wrap': v:false }
-        \           )
-
+        " do we have an existing window? great, lets use that, otherwise
+        " make a new one
+        if !empty(w:boingbufferid) && index(popup_list(), w:boingbufferid) >= 0
+            " is calling these bad? should we check they work and if not
+            " do the regular thing?
+            " maybe make checks that it's not hidden and has the right
+            " params??
+            call popup_setoptions(w:boingbufferid, 
+                        \             { 'title': l:title })
+            call popup_settext(w:boingbufferid, l:text)
+            " buffer id shouldn't change so we won't need to set it.
+        else
+            let w:boingbufferid = popup_create(l:text,
+            \           { 'padding': [1,1,1,1],
+            \             'line': 2,
+            \             'col': l:width,
+            \             'minheight': &lines - 1,
+            \             'minwidth': &columns - l:width,
+            \             'fixed': v:true,
+            \             'scrollbar': v:true,
+            \             'moved': [line('.'),0,l:ww],
+            \             'title': l:title,
+            \             'filter': funcref('boing#CloseThatPopup'),
+            \             'wrap': v:false }
+            \           )
+        endif
         call setbufvar(winbufnr(w:boingbufferid), '&filetype', 'git')
         " set the filetype in the popup to git, so syntax hi
     endif
