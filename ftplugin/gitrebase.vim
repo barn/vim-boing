@@ -9,7 +9,7 @@ let b:did_ftplugin_boing = 1
 " if !exists('#gitrebase#CursorMoved')
     augroup boing-gitrebase
         autocmd!
-        autocmd BufWinEnter,CursorMoved git-rebase-todo :call boing#GitSHAPopup()
+        autocmd WinEnter,CursorMoved git-rebase-todo call boing#GitSHAPopup()
         autocmd InsertLeave git-rebase-todo let w:gitshapopupline = -1
     augroup END
 "endif

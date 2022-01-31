@@ -13,10 +13,13 @@ let g:loaded_boing = 1
 " This should come from some config thing.
 let g:boing#enabled = get(g:, 'boing#enabled', v:false)
 let s:github_open_key = get(g:, 'boing#opengithubkey', "\<F9>")
+let s:togglekey = get(g:, 'boing#togglekey', '<Leader>gb')
+let s:popup_persist = get(g:, 'boing#popuppersist', v:true)
+let s:cachegit = get(g:, 'boing#cache', v:true)
 
 " Use this so we don't call the func on every CursorMoved, just up and
 " down or all around
-let w:gitshapopupline = -1
+let w:gitshapopupline = 0
 let w:boingbufferid = ''
 
 let s:sha = ''
@@ -26,7 +29,21 @@ let s:sha = ''
 " rebase in vim. I think an autocmd on bufsave or similar may work.
 let b:boingcache = {}
 
-let s:togglekey = get(g:, 'boing#togglekey', '<Leader>gb')
+" Yeah, this could be a thing people might went to define themselves one
+" day. Put in the things we know ahead of time in one place.
+" the "arbritary" numbers are based on my statusline/airline, so really
+" should be adjusted for that.
+let s:popup_defaults = {
+    \             'padding': [1,1,1,1],
+    \             'line': 2,
+    \             'minheight': &lines - 4,
+    \             'maxheight': &lines - 4,
+    \             'fixed': v:true,
+    \             'scrollbar': v:true,
+    \             'moved': [0, 0, 0],
+    \             'wrap': v:false }
+
+" this should be scoped I think, and isn't?
 execute 'nmap <silent>' . s:togglekey . ' :call boing#Toggle()<CR>'
 
 function! boing#Toggle()
@@ -43,6 +60,14 @@ endfunction
 function! boing#GuessClose()
     if !empty(w:boingbufferid) && !empty(popup_getoptions(w:boingbufferid))
         call popup_close(w:boingbufferid)
+    else
+        " debugin' only
+        for l:buf in popup_list()
+            let l:pos = popup_getpos(l:buf)
+            if exists(l:pos['line'])
+                echo ['line']
+            endif
+        endfor
     endif
 endfunction
 
@@ -50,7 +75,12 @@ function! boing#GitSHAPopup()
 
     " Fast fail for lines that aren't likely to contain SHAs
     let l:line = getline('.')
+
     if l:line[0] ==# '#' || l:line[0] !~? '[a-z]' || line('.') == w:gitshapopupline || g:boing#enabled == v:false
+        "more debug " echom 'line ' . l:line . 'cur line ' . line('.') . ' saved line ' . w:gitshapopupline
+        if s:popup_persist == v:true
+            call boing#GuessClose()
+        endif
         return
     endif
 
@@ -63,55 +93,89 @@ function! boing#GitSHAPopup()
 
         " set this early for autocmd CursorMoved thing
         let w:gitshapopupline = line('.')
+        let l:width = get(g:, 'boing#width', &columns/2)
 
-        if exists(b:boingcache[s:sha]) && !empty(b:boingcache[s:sha])
-            l:text = b:boingcache[s:sha]
+        if s:cachegit && has_key(b:boingcache,s:sha) && !empty(b:boingcache[s:sha])
+            let l:text = b:boingcache[s:sha]
         else
             " git command we run, split in to a list
             let l:cmd = 'git show --pretty=medium ' . s:sha
             let l:text = split(system(l:cmd), '\n')
-            b:boingcache[s:sha] = l:text
+            if s:cachegit
+                let b:boingcache[s:sha] = l:text
+            endif
         endif
-
-        " Fun working out how wide the popup should be
-        let l:ww = &columns
-        let l:width = &columns / 2
 
         let l:title = 'Doing a rebase'
         if exists('*airline#extensions#branch#head')
             let l:title = "\<Esc>[33m" . 'Rebase on ' . airline#extensions#branch#head()
         endif
-        let l:title = boing#CentreText(l:title, &columns - l:width)
+        let l:title = boing#CentreText(l:title, &columns - (&columns/2))
 
-        " do we have an existing window? great, lets use that, otherwise
-        " make a new one
-        if !empty(w:boingbufferid) && index(popup_list(), w:boingbufferid) >= 0
-            " is calling these bad? should we check they work and if not
-            " do the regular thing?
-            " maybe make checks that it's not hidden and has the right
-            " params??
-            call popup_setoptions(w:boingbufferid, 
-                        \             { 'title': l:title })
-            call popup_settext(w:boingbufferid, l:text)
-            " buffer id shouldn't change so we won't need to set it.
-        else
-            let w:boingbufferid = popup_create(l:text,
-            \           { 'padding': [1,1,1,1],
-            \             'line': 2,
-            \             'col': l:width,
-            \             'minheight': &lines - 1,
-            \             'minwidth': &columns - l:width,
-            \             'fixed': v:true,
-            \             'scrollbar': v:true,
-            \             'moved': [line('.'),0,l:ww],
-            \             'title': l:title,
-            \             'filter': funcref('boing#CloseThatPopup'),
-            \             'wrap': v:false }
-            \           )
-        endif
-        call setbufvar(winbufnr(w:boingbufferid), '&filetype', 'git')
+        " ahem debug
+        " echo 'list is ' . join(popup_list(), ', ')
+
+        call boing#DoPopup(l:title, l:text, l:width)
+        " " do we have an existing window? great, lets use that, otherwise
+        " " make a new one
+        " if !empty(w:boingbufferid) && index(popup_list(), w:boingbufferid) >= 0
+        "     " is calling these bad? should we check they work and if not
+        "     " do the regular thing?
+        "     " maybe make checks that it's not hidden and has the right
+        "     " params??
+        "     call popup_setoptions(w:boingbufferid, 
+        "                 \             { 'title': l:title })
+        "     call popup_settext(w:boingbufferid, l:text)
+        "     " buffer id shouldn't change so we won't need to set it.
+        " else
+        "     " merge the default options here, to make this hopefully
+        "     " clearly, and one day configurable
+        "     let w:boingbufferid = popup_create(l:text, extend(s:popup_defaults,
+        "     \           { 
+        "     \             'col': l:width,
+        "     \             'minwidth': &columns - l:width,
+        "     \             'title': l:title,
+        "     \             'filter': funcref('boing#CloseThatPopup'),
+        "     \           })
+        "     \    )
+        " endif
+        " call setbufvar(winbufnr(w:boingbufferid), '&filetype', 'git')
         " set the filetype in the popup to git, so syntax hi
     endif
+
+endfunction
+
+" I wanted to make width optional but.
+" vimlparser doesn't like this line,
+" https://github.com/vim-jp/vim-vimlparser/issues/154
+function! boing#DoPopup(title, body, width)
+
+    " do we have an existing window? great, lets use that, otherwise
+    " make a new one
+    if !empty(w:boingbufferid) && index(popup_list(), w:boingbufferid) >= 0
+        " is calling these bad? should we check they work and if not
+        " do the regular thing?
+        " maybe make checks that it's not hidden and has the right
+        " params??
+        call popup_setoptions(w:boingbufferid, 
+                    \             { 'title': a:title })
+        call popup_settext(w:boingbufferid, a:body)
+        " buffer id shouldn't change so we won't need to set it.
+    else
+        " merge the default options here, to make this hopefully
+        " clearly, and one day configurable
+        let w:boingbufferid = popup_create(a:body, extend(s:popup_defaults,
+        \           { 
+        \             'col': a:width,
+        \             'minwidth': a:width,
+        \             'title': a:title,
+        \             'filter': funcref('boing#CloseThatPopup'),
+        \           })
+        \    )
+    endif
+    call setbufvar(winbufnr(w:boingbufferid), '&filetype', 'git')
+    " set the filetype in the popup to git, so syntax hi
+
 endfunction
 
 " Given a width, say of a term/pane, and a string, centre it with spaces
@@ -155,7 +219,7 @@ function! boing#CloseThatPopup(winid, key)
   elseif a:key ==# "\<c-t>"
       call win_execute(a:winid, 'normal! gg')
   endif
-  return v:false
+  " return v:false
 endfunction
 
 function! boing#OpenGithubSha(winid)
