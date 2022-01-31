@@ -1,6 +1,6 @@
 " boing.vim - Popup window for commits when interactive rebasing
 " Author:       Bea Hughes <ohgoodmorespamviagithub@mumble.org.uk>
-" Version:      0.0.1
+" Version:      0.0.2
 "
 set encoding=utf-8
 scriptencoding utf-8
@@ -16,6 +16,8 @@ let s:github_open_key = get(g:, 'boing#opengithubkey', "\<F9>")
 let s:togglekey = get(g:, 'boing#togglekey', '<Leader>gb')
 let s:popup_persist = get(g:, 'boing#popuppersist', v:true)
 let s:cachegit = get(g:, 'boing#cache', v:true)
+" boing#width is defined later, as I don't know if it wants to be
+" configurable
 
 " Use this so we don't call the func on every CursorMoved, just up and
 " down or all around
@@ -42,6 +44,10 @@ let s:popup_defaults = {
     \             'scrollbar': v:true,
     \             'moved': [0, 0, 0],
     \             'wrap': v:false }
+
+if !s:popup_persist
+    let s:popup_defaults['moved'] = [line('.'),0,&columns]
+endif
 
 " this should be scoped I think, and isn't?
 execute 'nmap <silent>' . s:togglekey . ' :call boing#Toggle()<CR>'
@@ -116,35 +122,12 @@ function! boing#GitSHAPopup()
         " echo 'list is ' . join(popup_list(), ', ')
 
         call boing#DoPopup(l:title, l:text, l:width)
-        " " do we have an existing window? great, lets use that, otherwise
-        " " make a new one
-        " if !empty(w:boingbufferid) && index(popup_list(), w:boingbufferid) >= 0
-        "     " is calling these bad? should we check they work and if not
-        "     " do the regular thing?
-        "     " maybe make checks that it's not hidden and has the right
-        "     " params??
-        "     call popup_setoptions(w:boingbufferid, 
-        "                 \             { 'title': l:title })
-        "     call popup_settext(w:boingbufferid, l:text)
-        "     " buffer id shouldn't change so we won't need to set it.
-        " else
-        "     " merge the default options here, to make this hopefully
-        "     " clearly, and one day configurable
-        "     let w:boingbufferid = popup_create(l:text, extend(s:popup_defaults,
-        "     \           { 
-        "     \             'col': l:width,
-        "     \             'minwidth': &columns - l:width,
-        "     \             'title': l:title,
-        "     \             'filter': funcref('boing#CloseThatPopup'),
-        "     \           })
-        "     \    )
-        " endif
-        " call setbufvar(winbufnr(w:boingbufferid), '&filetype', 'git')
-        " set the filetype in the popup to git, so syntax hi
     endif
 
 endfunction
 
+" do we have an existing window? great, lets use that, otherwise
+" make a new one. 
 " I wanted to make width optional but.
 " vimlparser doesn't like this line,
 " https://github.com/vim-jp/vim-vimlparser/issues/154
@@ -152,7 +135,7 @@ function! boing#DoPopup(title, body, width)
 
     " do we have an existing window? great, lets use that, otherwise
     " make a new one
-    if !empty(w:boingbufferid) && index(popup_list(), w:boingbufferid) >= 0
+    if s:popup_persist && !empty(w:boingbufferid) && index(popup_list(), w:boingbufferid) >= 0
         " is calling these bad? should we check they work and if not
         " do the regular thing?
         " maybe make checks that it's not hidden and has the right
