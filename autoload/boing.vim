@@ -47,9 +47,16 @@ let s:popup_defaults = {
     \             'moved': [0, 0, 0],
     \             'wrap': v:false }
 
-if !s:popup_persist
-    let s:popup_defaults['moved'] = [line('.'),0,&columns]
-endif
+
+" Do this dynamically, so line() will return whatever line you're on, and
+" columns can change.
+function boing#popupdefs() abort
+    let l:popup_defaults = s:popup_defaults
+    if !s:popup_persist
+        let l:popup_defaults['moved'] = [line('.'),0,&columns]
+    endif
+    return l:popup_defaults
+endfunction
 
 " this should be scoped I think, and isn't?
 execute 'nmap <silent>' . s:togglekey . ' :call boing#Toggle()<CR>'
@@ -70,7 +77,7 @@ function! boing#Toggle()
 endfunction
 
 function! boing#GuessClose()
-    if !empty(w:boingbufferid) && !empty(popup_getoptions(w:boingbufferid))
+    if !empty(w:boingbufferid) && index(popup_list(), w:boingbufferid) >= 0
         call popup_close(w:boingbufferid)
         let w:boingbufferid = ''   " seeing as we test if its empty?
     else
@@ -202,8 +209,8 @@ function! boing#DoPopup(title, body, width)
     else
         " merge the default options here, to make this hopefully
         " clearly, and one day configurable
-        let w:boingbufferid = popup_create(a:body, extend(s:popup_defaults,
-        \           { 
+        let w:boingbufferid = popup_create(a:body, extend(boing#popupdefs(),
+        \           {
         \             'col': a:width,
         \             'minwidth': a:width,
         \             'title': a:title,
